@@ -2,7 +2,7 @@
 Example code using the judge module
 """
 import time
-
+import numpy as np
 # pylint: disable=import-error
 import cv2
 import keyboard
@@ -28,6 +28,28 @@ class FPSCounter:
 
         return count / n_seconds
 
+def color_thresh(img, above_thresh=(55,55,155),below_thresh=(65,65,165)):
+    # Create an array of zeros same xy size as img, but single channel
+    
+    # Require that each pixel be above all three threshold values in RGB
+    # above_thresh will now contain a boolean array with "True"
+    # where threshold was met
+    above_thresh_result = (img[:,:,0] > above_thresh[0]) \
+                & (img[:,:,1] > above_thresh[1]) \
+                & (img[:,:,2] > above_thresh[2])
+    # Index the array of zeros with the boolean array and set to 1
+    img[above_thresh_result] = 1
+
+  
+    below_thresh_result = (img[:,:,0] > below_thresh[0]) \
+                & (img[:,:,1] > below_thresh[1]) \
+                & (img[:,:,2] > below_thresh[2])
+    # Index the array of zeros with the boolean array and set to 0
+    img[below_thresh_result] = 0   
+
+    
+    # Return the binary image
+    return img
 
 def run_car(simulator: Simulator) -> None:
     """
@@ -47,7 +69,26 @@ def run_car(simulator: Simulator) -> None:
 
     # Get the image and show it
     img = simulator.get_image()
+      
     img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    lower_bound = np.array([30, 30, 130])	 
+    upper_bound = np.array([70, 70, 180])
+# find the colors within the boundaries 
+    img = cv2.inRange(img, lower_bound,upper_bound)
+    
+    img[0:300]=0
+    # print(img)
+    # img=color_thresh(img)
+    # print(img[0:2])  
+    
+    
+    #perception
+    
+    
+    
+    
+    
+    
     fps = fps_counter.get_fps()
 
     # draw fps on image
@@ -66,12 +107,14 @@ def run_car(simulator: Simulator) -> None:
 
     # Control the car using keyboard
     steering = 0
+    #steering code
     if keyboard.is_pressed("a"):
         steering = 1
     elif keyboard.is_pressed("d"):
         steering = -1
 
     throttle = 0
+    #banzeene control
     if keyboard.is_pressed("w"):
         throttle = 1
     elif keyboard.is_pressed("s"):
