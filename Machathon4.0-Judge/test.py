@@ -2,10 +2,11 @@
 Example code using the judge module
 """
 import time
-import numpy as np
+
 # pylint: disable=import-error
 import cv2
 import keyboard
+import numpy as np
 
 from machathon_judge import Simulator, Judge
 
@@ -28,28 +29,22 @@ class FPSCounter:
 
         return count / n_seconds
 
-def color_thresh(img, above_thresh=(55,55,155),below_thresh=(65,65,165)):
-    # Create an array of zeros same xy size as img, but single channel
-    
-    # Require that each pixel be above all three threshold values in RGB
-    # above_thresh will now contain a boolean array with "True"
-    # where threshold was met
-    above_thresh_result = (img[:,:,0] > above_thresh[0]) \
-                & (img[:,:,1] > above_thresh[1]) \
-                & (img[:,:,2] > above_thresh[2])
-    # Index the array of zeros with the boolean array and set to 1
-    img[above_thresh_result] = 1
+def rover_coords(binary_img):
+    ypos, xpos = binary_img.nonzero()
+    x_pixel = -(ypos - binary_img.shape[0]).astype(np.float64)
+    y_pixel = -(xpos - binary_img.shape[1]/2 ).astype(np.float64)
+    return x_pixel, y_pixel
 
-  
-    below_thresh_result = (img[:,:,0] > below_thresh[0]) \
-                & (img[:,:,1] > below_thresh[1]) \
-                & (img[:,:,2] > below_thresh[2])
-    # Index the array of zeros with the boolean array and set to 0
-    img[below_thresh_result] = 0   
+def to_polar_coords(x_pixel, y_pixel):
+    dist = np.sqrt(x_pixel**2 + y_pixel**2)
+    angles = np.arctan2(y_pixel, x_pixel)
+    return dist, angles
 
-    
-    # Return the binary image
-    return img
+def thresholding(img, thresh=(200, 200, 200)):
+    thresholded = np.zeros_like(img[:,:])
+    indecies = (img[:,:,0] > thresh[0]) & (img[:,:,1] > thresh[1]) & (img[:,:,2] > thresh[2])
+    thresholded[indecies] = 255
+    return thresholded
 
 def run_car(simulator: Simulator) -> None:
     """
@@ -69,26 +64,7 @@ def run_car(simulator: Simulator) -> None:
 
     # Get the image and show it
     img = simulator.get_image()
-      
     img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-    lower_bound = np.array([30, 30, 130])	 
-    upper_bound = np.array([70, 70, 180])
-# find the colors within the boundaries 
-    img = cv2.inRange(img, lower_bound,upper_bound)
-    
-    img[0:300]=0
-    # print(img)
-    # img=color_thresh(img)
-    # print(img[0:2])  
-    
-    
-    #perception
-    
-    
-    
-    
-    
-    
     fps = fps_counter.get_fps()
 
     # draw fps on image
@@ -105,20 +81,28 @@ def run_car(simulator: Simulator) -> None:
     cv2.imshow("image", img)
     cv2.waitKey(1)
 
-    # Control the car using keyboard
+    # Adham's edit 
+    throttle = 0.1
     steering = 0
-    #steering code
-    if keyboard.is_pressed("a"):
-        steering = 1
-    elif keyboard.is_pressed("d"):
-        steering = -1
+    steer_fact = 1.3
+    rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    bw = thresholding(rgb)
+    xpix, ypix = rover_coords(bw[:,:,0])
+    dists, angles = to_polar_coords(xpix, ypix)
+    steering = np.mean(angles)*steer_fact
+    
+    # # Control the car using keyboard
+    # steering = 0
+    # if keyboard.is_pressed("a"):
+    #     steering = 1
+    # elif keyboard.is_pressed("d"):
+    #     steering = -1
 
-    throttle = 0
-    #banzeene control
-    if keyboard.is_pressed("w"):
-        throttle = 1
-    elif keyboard.is_pressed("s"):
-        throttle = -1
+    # throttle = 0
+    # if keyboard.is_pressed("w"):
+    #     throttle = 1
+    # elif keyboard.is_pressed("s"):
+    #     throttle = -1
 
     simulator.set_car_steering(steering * simulator.max_steer_angle / 1.7)
     simulator.set_car_velocity(throttle * 25)
@@ -131,7 +115,7 @@ if __name__ == "__main__":
 
     # You should modify the value of the parameters to the judge constructor
     # according to your team's info
-    judge = Judge(team_code="your_new_team_code", zip_file_path="your_solution.zip")
+    judge = Judge(team_code="9287485", zip_file_path="your_solution.zip")
 
     # Pass the function that contains your main solution to the judge
     judge.set_run_hook(run_car)
