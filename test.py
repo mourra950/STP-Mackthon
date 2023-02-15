@@ -82,15 +82,37 @@ def run_car(simulator: Simulator) -> None:
     # rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     bw = thresholding(img)
     # bw = cv2.bitwise_and(bw,circle)
-    kernel = np.ones((2,3),np.uint8)
-    img2=cv2.erode(img2,kernel,iterations = 1)
+    # kernel = np.ones((4,4),np.uint8)
+    # img2=cv2.erode(img2,kernel,iterations = 1)
+    
     img2 = cv2.bitwise_and(img2,circle)
     xpix, ypix = rover_coords(bw[:,:,0])
     angles = to_polar_coords(xpix, ypix)
     steering = np.mean(angles)*steer_fact
+    img2=cv2.Canny(img2,10,200)
     
-    
-    # print(len(img2))
+    lines = cv2.HoughLines(img2,1,np.pi/180,85)
+    L=np.array([])
+    if(lines is not None):
+        for line in lines:
+            rho,theta = line[0]
+            print(rho)
+            theta=((theta*180)/np.pi)-90
+            # print(theta)
+            L=np.append(L,theta)
+            a = np.cos(theta)
+            b = np.sin(theta)
+            x0 = a*rho
+            y0 = b*rho
+            x1 = int(x0 + 1000*(-b))
+            y1 = int(y0 + 1000*(a))
+            x2 = int(x0 - 1000*(-b))
+            y2 = int(y0 - 1000*(a))
+            cv2.line(img2,(x1,y1),(x2,y2),(255,255,255),2)
+        steering=np.mean(L)
+    else:
+        steering=0
+        # print(len(img2))
     # # Control the car using keyboard
     # steering = 0
     # if keyboard.is_pressed("a"):
@@ -113,7 +135,7 @@ def run_car(simulator: Simulator) -> None:
         2,
         cv2.LINE_AA,
     )
-    cv2.imshow("image", img2)
+    cv2.imshow("image", img)
     cv2.waitKey(1)
     
     simulator.set_car_steering(steering * simulator.max_steer_angle / 1.7)
