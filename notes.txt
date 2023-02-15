@@ -1,0 +1,2 @@
+line color rgb =165,55,60
+crop 

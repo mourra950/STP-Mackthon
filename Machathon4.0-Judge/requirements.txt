@@ -1,7 +1,0 @@
-pyzmq
-cbor
-numpy
-requests
-keyboard
-opencv-python
-websockets
