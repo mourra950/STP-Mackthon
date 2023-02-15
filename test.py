@@ -10,7 +10,7 @@ import numpy as np
 
 from machathon_judge import Simulator, Judge
 
-
+c=False
 class FPSCounter:
     def __init__(self):
         self.frames = []
@@ -48,10 +48,10 @@ def thresholding(img, thresh=(200, 200, 200)):
 
 ###to get throttle
 def get_throttle(steering_angle) -> float:
-    if abs(steering_angle) < 0.06:
-        return 1.2
+    if abs(steering_angle) < 0.070:
+        return 1.8
     else:
-        return 0.17
+        return 0.21
 
 
 
@@ -77,16 +77,16 @@ def run_car(simulator: Simulator) -> None:
     fps = fps_counter.get_fps()
 
     # draw fps on image
-    cv2.putText(
-        img,
-        f"FPS: {fps:.2f}",
-        (10, 30),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        1,
-        (0, 255, 0),
-        2,
-        cv2.LINE_AA,
-    )
+    # cv2.putText(
+    #     img,
+    #     f"FPS: {fps:.2f}",
+    #     (10, 30),
+    #     cv2.FONT_HERSHEY_SIMPLEX,
+    #     1,
+    #     (0, 255, 0),
+    #     2,
+    #     cv2.LINE_AA,
+    # )
    
     cv2.waitKey(1)
 
@@ -98,7 +98,7 @@ def run_car(simulator: Simulator) -> None:
     bw = thresholding(rgb)
     bw[0:300]=0
     kernel = np.ones((5,5),np.uint8)
-    bw = cv2.erode(bw,kernel,iterations = 6)
+    bw = cv2.erode(bw,kernel,iterations = 7)
     
     xpix, ypix = rover_coords(bw[:,:,0])
     dists, angles = to_polar_coords(xpix, ypix)
@@ -116,6 +116,7 @@ def run_car(simulator: Simulator) -> None:
     #     throttle = 1
     # elif keyboard.is_pressed("s"):
     #     throttle = -1
+    
     throttle = get_throttle(steering * simulator.max_steer_angle / 1.7)
     simulator.set_car_steering(steering * simulator.max_steer_angle / 1.7)
     simulator.set_car_velocity(throttle * 25)
