@@ -46,6 +46,16 @@ def thresholding(img, thresh=(200, 200, 200)):
     thresholded[indecies] = 255
     return thresholded
 
+###to get throttle
+def get_throttle(steering_angle) -> float:
+    if abs(steering_angle) < 0.06:
+        return 1.2
+    else:
+        return 0.17
+
+
+
+
 def run_car(simulator: Simulator) -> None:
     """
     Function to control the car using keyboard
@@ -93,7 +103,7 @@ def run_car(simulator: Simulator) -> None:
     xpix, ypix = rover_coords(bw[:,:,0])
     dists, angles = to_polar_coords(xpix, ypix)
     steering = np.mean(angles)*steer_fact
-    cv2.imshow("image", bw)
+    cv2.imshow("image", img)
     # # Control the car using keyboard
     # steering = 0
     # if keyboard.is_pressed("a"):
@@ -106,7 +116,7 @@ def run_car(simulator: Simulator) -> None:
     #     throttle = 1
     # elif keyboard.is_pressed("s"):
     #     throttle = -1
-
+    throttle = get_throttle(steering * simulator.max_steer_angle / 1.7)
     simulator.set_car_steering(steering * simulator.max_steer_angle / 1.7)
     simulator.set_car_velocity(throttle * 25)
 
