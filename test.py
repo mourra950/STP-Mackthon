@@ -82,12 +82,13 @@ def run_car(simulator: Simulator) -> None:
     # rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     bw = thresholding(img)
     # bw = cv2.bitwise_and(bw,circle)
-    img2=scipy.ndimage.binary_erosion(img2, structure=np.ones((1,2))).astype(img2.dtype)
+    kernel = np.ones((2,3),np.uint8)
+    img2=cv2.erode(img2,kernel,iterations = 1)
     img2 = cv2.bitwise_and(img2,circle)
     xpix, ypix = rover_coords(bw[:,:,0])
     angles = to_polar_coords(xpix, ypix)
     steering = np.mean(angles)*steer_fact
-    print(len(img2))
+    
     
     # print(len(img2))
     # # Control the car using keyboard
