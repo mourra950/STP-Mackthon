@@ -9,6 +9,9 @@ import keyboard
 import numpy as np
 
 from machathon_judge import Simulator, Judge
+# pid library and initialization
+from simple_pid import PID
+pid = PID(1, 0.1, 0.01)
 
 c=False
 class FPSCounter:
@@ -102,7 +105,12 @@ def run_car(simulator: Simulator) -> None:
     
     xpix, ypix = rover_coords(bw[:,:,0])
     dists, angles = to_polar_coords(xpix, ypix)
-    steering = np.mean(angles)*steer_fact
+    
+    # steering = np.mean(angles)*steer_fact
+    # send the optimized pid steering
+    pid.setpoint = np.mean(angles)*steer_fact
+    steering = pid(steering)
+
     cv2.imshow("image", img)
     # # Control the car using keyboard
     # steering = 0
