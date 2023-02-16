@@ -11,7 +11,8 @@ import numpy as np
 from machathon_judge import Simulator, Judge
 # pid library and initialization
 from simple_pid import PID
-pid = PID(1, 0.1, 0.01)
+# pid1 = PID(1, 0.1, 0.01)
+pid2 = PID(0.1, 0.1, 0.01)
 
 c=False
 class FPSCounter:
@@ -51,10 +52,10 @@ def thresholding(img, thresh=(200, 200, 200)):
 
 ###to get throttle
 def get_throttle(steering_angle) -> float:
-    if abs(steering_angle) < 0.070:
-        return 1.8
+    if abs(steering_angle) < 0.065:
+        return 2
     else:
-        return 0.21
+        return 0.3
 
 
 
@@ -72,62 +73,81 @@ def run_car(simulator: Simulator) -> None:
         - set_car_velocity()
         - get_state()
     """
-    fps_counter.step()
+    while True:
+        fps_counter.step()
 
-    # Get the image and show it
-    img = simulator.get_image()
-    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-    fps = fps_counter.get_fps()
-
-    # draw fps on image
-    # cv2.putText(
-    #     img,
-    #     f"FPS: {fps:.2f}",
-    #     (10, 30),
-    #     cv2.FONT_HERSHEY_SIMPLEX,
-    #     1,
-    #     (0, 255, 0),
-    #     2,
-    #     cv2.LINE_AA,
-    # )
-   
-    cv2.waitKey(1)
-
-    # Adham's edit 
-    throttle = 0.17
-    steering = 0
-    steer_fact = 1.3
-    rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    bw = thresholding(rgb)
-    bw[0:300]=0
-    kernel = np.ones((5,5),np.uint8)
-    bw = cv2.erode(bw,kernel,iterations = 7)
+        # Get the image and show it
+        img = simulator.get_image()
+        
+        
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+        fps = fps_counter.get_fps()
+        
+    # find the colors within the boundaries 
+        # img2 = cv2.inRange(img, lower_bound,upper_bound)
+        # draw fps on image
+        # cv2.putText(
+        #     img,
+        #     f"FPS: {fps:.2f}",
+        #     (10, 30),
+        #     cv2.FONT_HERSHEY_SIMPLEX,
+        #     1,
+        #     (0, 255, 0),
+        #     2,
+        #     cv2.LINE_AA,
+        # )
     
-    xpix, ypix = rover_coords(bw[:,:,0])
-    dists, angles = to_polar_coords(xpix, ypix)
-    
-    # steering = np.mean(angles)*steer_fact
-    # send the optimized pid steering
-    pid.setpoint = np.mean(angles)*steer_fact
-    steering = pid(steering)
+        cv2.waitKey(1)
 
-    cv2.imshow("image", img)
-    # # Control the car using keyboard
-    # steering = 0
-    # if keyboard.is_pressed("a"):
-    #     steering = 1
-    # elif keyboard.is_pressed("d"):
-    #     steering = -1
+        # Adham's edit 
+        throttle = 0.17
+        steering = 0
+        steer_fact = 1.3
+        rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        bw = thresholding(rgb)
+        bw[0:250]=0
+        bw[420:480]=0
+        blank=np.ones_like(bw)
+        maskrectangle1=cv2.rectangle(blank.copy(),(320-200,0),(320+200,480),(255,255,255),-1)
+        # maskrectangle2=cv2.rectangle(blank.copy(),(540,0),(640,480),(255,255,255),-1)
+        
+        kernel = np.ones((5,5),np.uint8)
+        bw = cv2.erode(bw,kernel,iterations = 6)
+        bw=np.bitwise_and(bw,maskrectangle1)
+        # bw=np.bitwise_xor(bw,maskrectangle2)
+        # img2 = cv2.erode(img2,kernel,iterations = 2)
+        xpix, ypix = rover_coords(bw[:,:,0])
+        dists, angles = to_polar_coords(xpix, ypix)
+        if angles is not None:
+            steering = np.mean(angles)
+            
+            if steering<0.1:
+                pid2.setpoint = 0
+                steering = pid2(steering)
+                    
+        
+        # send the optimized pid steering
+        # pid2.setpoint = np.mean(angles)
+        # steering = pid2(steering)
 
-    # throttle = 0
-    # if keyboard.is_pressed("w"):
-    #     throttle = 1
-    # elif keyboard.is_pressed("s"):
-    #     throttle = -1
     
-    throttle = get_throttle(steering * simulator.max_steer_angle / 1.7)
-    simulator.set_car_steering(steering * simulator.max_steer_angle / 1.7)
-    simulator.set_car_velocity(throttle * 25)
+        cv2.imshow("image", bw)
+        # # Control the car using keyboard
+        # steering = 0
+        # if keyboard.is_pressed("a"):
+        #     steering = 1
+        # elif keyboard.is_pressed("d"):
+        #     steering = -1
+
+        # throttle = 0
+        # if keyboard.is_pressed("w"):
+        #     throttle = 1
+        # elif keyboard.is_pressed("s"):
+        #     throttle = -1
+        
+        throttle = get_throttle(steering * simulator.max_steer_angle / 1.8)
+        simulator.set_car_steering(steering * simulator.max_steer_angle / 1.8)
+        simulator.set_car_velocity(throttle * 25)
 
 
 if __name__ == "__main__":
