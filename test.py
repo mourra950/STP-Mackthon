@@ -120,8 +120,9 @@ def run_car(simulator: Simulator) -> None:
     steer_fact = 1.3
     rgb = cv2.cvtColor(warped, cv2.COLOR_BGR2RGB)
     bw = thresholding(rgb)
-    kernel = np.ones((5,5),np.uint8)
+    kernel = np.ones((15,5),np.uint8)
     bw = cv2.erode(bw,kernel,iterations = 6)
+    # cv2.imwrite('./warped.png',bw)
     bw[0:230]=0
     
     
