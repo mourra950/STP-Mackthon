@@ -55,8 +55,8 @@ def thresholding(img, thresh=(200, 200, 200)):
 ###to get throttle
 def get_throttle(steering_angle) -> float:
     print(steering_angle)
-    if abs(steering_angle) < 0.030:
-        return 1.9,1.9
+    if abs(steering_angle) < 0.025:
+        return 2.5,2
     else:
         return 0.25,1
 
@@ -77,7 +77,7 @@ def run_car(simulator: Simulator) -> None:
         - get_state()
     """
     fps_counter.step()
-    dst_size= 40
+    dst_size= 45
     bottom_offset= 0
     source = np.float32([[222, 460],
                          [377, 468],
@@ -92,25 +92,13 @@ def run_car(simulator: Simulator) -> None:
     
     fps = fps_counter.get_fps()
     image=img
-    destination = np.float32([[image.shape[1]/2 - dst_size, image.shape[0] - bottom_offset],
-                [image.shape[1]/2 + dst_size, image.shape[0] - bottom_offset],
-                [image.shape[1]/2 + dst_size, image.shape[0] - 2*dst_size - bottom_offset], 
-                [image.shape[1]/2 - dst_size, image.shape[0] - 2*dst_size - bottom_offset],
+    destination = np.float32([[image.shape[1]/2 - dst_size, image.shape[0] ],
+                [image.shape[1]/2 + dst_size, image.shape[0] ],
+                [image.shape[1]/2 + dst_size, image.shape[0] - 2*dst_size ], 
+                [image.shape[1]/2 - dst_size, image.shape[0] - 2*dst_size ],
                 ])
     warped = perspect_transform(image, source, destination)
-    
-    # cv2.imwrite('./warped.png', warped)
-    # draw fps on image
-    # cv2.putText(
-    #     img,
-    #     f"FPS: {fps:.2f}",
-    #     (10, 30),
-    #     cv2.FONT_HERSHEY_SIMPLEX,
-    #     1,
-    #     (0, 255, 0),
-    #     2,
-    #     cv2.LINE_AA,
-    # )
+    cv2.imshow("image", warped)
    
     cv2.waitKey(1)
    
@@ -120,10 +108,14 @@ def run_car(simulator: Simulator) -> None:
     steer_fact = 1.3
     rgb = cv2.cvtColor(warped, cv2.COLOR_BGR2RGB)
     bw = thresholding(rgb)
-    kernel = np.ones((15,5),np.uint8)
-    bw = cv2.erode(bw,kernel,iterations = 6)
+    kernel = np.ones((10,4),np.uint8)
+    bw = cv2.erode(bw,kernel,iterations = 7)
+    # kernel = np.ones((35,3),np.uint8)
+    # bw = cv2.erode(bw,kernel,iterations = 6)
+    # bw = cv2.morphologyEx(bw, cv2.MORPH_OPEN, kernel)
+    # bw = cv2.erode(bw,kernel,iterations = 6)
     # cv2.imwrite('./warped.png',bw)
-    bw[0:230]=0
+    # bw[0:200]=0
     
     
     ##
@@ -137,7 +129,7 @@ def run_car(simulator: Simulator) -> None:
     #
     # bw=np.bitwise_and(bw,maskrectangle1)
     ######
-    cv2.imshow("image", bw)
+    
     
     xpix, ypix = rover_coords(bw[:,:,0])
     dists, angles = to_polar_coords(xpix, ypix)
