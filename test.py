@@ -10,7 +10,8 @@ from machathon_judge import Simulator, Judge
 from simple_pid import PID
 
 pid = PID(1, 0.1, 0.01)
-count=0
+count=0.0
+previous=0
 def perspect_transform(img, src, dst):
            
     M = cv2.getPerspectiveTransform(src, dst)
@@ -46,28 +47,60 @@ def to_polar_coords(x_pixel, y_pixel):
     angles = np.arctan2(y_pixel, x_pixel)
     return dist, angles
 
-def thresholding(img, thresh=(200, 200, 200)):
+def thresholding(img, thresh=(220, 220, 220)):
     thresholded = np.zeros_like(img[:,:])
     indecies = (img[:,:,0] > thresh[0]) & (img[:,:,1] > thresh[1]) & (img[:,:,2] > thresh[2])
     thresholded[indecies] = 255
     return thresholded
 
 ###to get throttle
-def get_throttle(steering_angle) -> float:
-    global count
+# def get_throttle(steering_angle) -> float:
+#     global count,previous
+#     # temp=previous
+#     # if abs(temp-steering_angle)<0.035:
+#     #     previous=steering_angle
+#     #     steering_angle=temp
     
-    if abs(steering_angle) < 0.07:
-        count=0
+#     if abs(steering_angle) < 0.03:
+#         count=0
         
-        return 4,1.7
-    else:
-        if count>0.15:
-            count+=0.013
-        else:
-            count+=0.016
+#         return 4,1.7
+#     elif  abs(steering_angle) < 0.07 :
         
-        return 0.18+count,1
+        
+#         return 1,1
+#     else:
+#         if count>0.15:
+#             count+=0.0145
+#         else:
+#             count+=0.0165
+        
+#         return 0.185+count,0.9
 
+def get_throttle(steering_angle) -> float:
+    global count,previous
+    temp=previous
+    
+    if abs(temp-steering_angle)<0.06:
+        previous=steering_angle
+        steering_angle=0
+           
+    # print(steering_angle)
+    # if abs(steering_angle) < 0.03:
+    #     count=0.00
+    #     return 4,2.1
+    # elif abs(steering_angle) < 0.06:
+    #     count-=0.02
+    #     if count<0:
+    #         count=0
+    # if count>0.15:
+    #     count+=0.015
+    # else:
+    #     count+=0.018
+    
+    previous=(1-abs(steering_angle))*1+0.003 * ( 1 / ((3*(steering_angle**2))+0.001))+0.0001
+    
+    return previous , 0.85
 
 
 
@@ -100,10 +133,10 @@ def run_car(simulator: Simulator) -> None:
     
     fps = fps_counter.get_fps()
     image=img
-    destination = np.float32([[image.shape[1]/2 - dst_size, image.shape[0] ],
-                [image.shape[1]/2 + dst_size, image.shape[0] ],
-                [image.shape[1]/2 + dst_size, image.shape[0] - 2*dst_size ], 
-                [image.shape[1]/2 - dst_size, image.shape[0] - 2*dst_size ],
+    destination = np.float32([[image.shape[1]/2 - 1.5*dst_size, image.shape[0] ],
+                [image.shape[1]/2 + 1.5*dst_size, image.shape[0] ],
+                [image.shape[1]/2 + 1.5*dst_size, image.shape[0] - 2*dst_size ], 
+                [image.shape[1]/2 - 1.5*dst_size, image.shape[0] - 2*dst_size ],
                 ])
     warped = perspect_transform(image, source, destination)
     # cv2.imshow("image", warped)
@@ -117,7 +150,7 @@ def run_car(simulator: Simulator) -> None:
     rgb = cv2.cvtColor(warped, cv2.COLOR_BGR2RGB)
     bw = thresholding(rgb)
     kernel = np.ones((5,5),np.uint8)
-    bw = cv2.erode(bw,kernel,iterations = 7)
+    bw = cv2.erode(bw,kernel,iterations = 6)
     # kernel = np.ones((35,3),np.uint8)
     # bw = cv2.erode(bw,kernel,iterations = 6)
     # bw = cv2.morphologyEx(bw, cv2.MORPH_OPEN, kernel)
@@ -155,7 +188,7 @@ def run_car(simulator: Simulator) -> None:
     #     throttle = 1
     # elif keyboard.is_pressed("s"):
     #     throttle = 0
-    
+    cv2.imshow("image", warped)
     throttle,fact= get_throttle(steering * simulator.max_steer_angle / 1.8)
     simulator.set_car_steering(steering * simulator.max_steer_angle /fact)
     simulator.set_car_velocity(throttle * 25)
@@ -174,4 +207,4 @@ if __name__ == "__main__":
     judge.set_run_hook(run_car)
 
     # Start the judge and simulation
-    judge.run(send_score=True, verbose=True)
+    judge.run(send_score=False, verbose=True)
