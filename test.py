@@ -10,7 +10,7 @@ from machathon_judge import Simulator, Judge
 from simple_pid import PID
 
 pid = PID(1, 0.1, 0.01)
-
+count=0
 def perspect_transform(img, src, dst):
            
     M = cv2.getPerspectiveTransform(src, dst)
@@ -54,11 +54,19 @@ def thresholding(img, thresh=(200, 200, 200)):
 
 ###to get throttle
 def get_throttle(steering_angle) -> float:
-    print(steering_angle)
-    if abs(steering_angle) < 0.025:
-        return 2.5,2
+    global count
+    
+    if abs(steering_angle) < 0.07:
+        count=0
+        
+        return 4,1.7
     else:
-        return 0.25,1
+        if count>0.15:
+            count+=0.013
+        else:
+            count+=0.016
+        
+        return 0.18+count,1
 
 
 
@@ -77,7 +85,7 @@ def run_car(simulator: Simulator) -> None:
         - get_state()
     """
     fps_counter.step()
-    dst_size= 45
+    dst_size= 37
     bottom_offset= 0
     source = np.float32([[222, 460],
                          [377, 468],
@@ -98,7 +106,7 @@ def run_car(simulator: Simulator) -> None:
                 [image.shape[1]/2 - dst_size, image.shape[0] - 2*dst_size ],
                 ])
     warped = perspect_transform(image, source, destination)
-    cv2.imshow("image", warped)
+    # cv2.imshow("image", warped)
    
     cv2.waitKey(1)
    
@@ -108,7 +116,7 @@ def run_car(simulator: Simulator) -> None:
     steer_fact = 1.3
     rgb = cv2.cvtColor(warped, cv2.COLOR_BGR2RGB)
     bw = thresholding(rgb)
-    kernel = np.ones((10,4),np.uint8)
+    kernel = np.ones((5,5),np.uint8)
     bw = cv2.erode(bw,kernel,iterations = 7)
     # kernel = np.ones((35,3),np.uint8)
     # bw = cv2.erode(bw,kernel,iterations = 6)
@@ -148,7 +156,7 @@ def run_car(simulator: Simulator) -> None:
     # elif keyboard.is_pressed("s"):
     #     throttle = 0
     
-    throttle,fact= get_throttle(steering * simulator.max_steer_angle / 1.7)
+    throttle,fact= get_throttle(steering * simulator.max_steer_angle / 1.8)
     simulator.set_car_steering(steering * simulator.max_steer_angle /fact)
     simulator.set_car_velocity(throttle * 25)
 
@@ -166,4 +174,4 @@ if __name__ == "__main__":
     judge.set_run_hook(run_car)
 
     # Start the judge and simulation
-    judge.run(send_score=False, verbose=True)
+    judge.run(send_score=True, verbose=True)
