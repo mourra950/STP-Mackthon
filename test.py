@@ -10,14 +10,19 @@ from machathon_judge import Simulator, Judge
 from simple_pid import PID
 
 pid = PID(1, 0.1, 0.01)
-count=0.0
+count = 0
+c = 0
 previous=0
+
 def perspect_transform(img, src, dst):
-           
+
     M = cv2.getPerspectiveTransform(src, dst)
-    warped = cv2.warpPerspective(img, M, (img.shape[1], img.shape[0]))# keep same size as input image
-        
+    # keep same size as input image
+    warped = cv2.warpPerspective(img, M, (img.shape[1], img.shape[0]))
+
     return warped
+
+
 class FPSCounter:
     def __init__(self):
         self.frames = []
@@ -36,75 +41,50 @@ class FPSCounter:
 
         return count / n_seconds
 
+
 def rover_coords(binary_img):
     ypos, xpos = binary_img.nonzero()
     x_pixel = -(ypos - binary_img.shape[0]).astype(np.float64)
-    y_pixel = -(xpos - binary_img.shape[1]/2 ).astype(np.float64)
+    y_pixel = -(xpos - binary_img.shape[1]/2).astype(np.float64)
     return x_pixel, y_pixel
+
 
 def to_polar_coords(x_pixel, y_pixel):
     dist = np.sqrt(x_pixel**2 + y_pixel**2)
     angles = np.arctan2(y_pixel, x_pixel)
     return dist, angles
 
-def thresholding(img, thresh=(220, 220, 220)):
-    thresholded = np.zeros_like(img[:,:])
-    indecies = (img[:,:,0] > thresh[0]) & (img[:,:,1] > thresh[1]) & (img[:,:,2] > thresh[2])
+
+def thresholding(img, thresh=(200, 200, 200)):
+    thresholded = np.zeros_like(img[:, :])
+    indecies = (img[:, :, 0] > thresh[0]) & (
+        img[:, :, 1] > thresh[1]) & (img[:, :, 2] > thresh[2])
     thresholded[indecies] = 255
     return thresholded
 
-###to get throttle
-# def get_throttle(steering_angle) -> float:
-#     global count,previous
-#     # temp=previous
-#     # if abs(temp-steering_angle)<0.035:
-#     #     previous=steering_angle
-#     #     steering_angle=temp
-    
-#     if abs(steering_angle) < 0.03:
-#         count=0
-        
-#         return 4,1.7
-#     elif  abs(steering_angle) < 0.07 :
-        
-        
-#         return 1,1
-#     else:
-#         if count>0.15:
-#             count+=0.0145
-#         else:
-#             count+=0.0165
-        
-#         return 0.185+count,0.9
+# to get throttle
+
 
 def get_throttle(steering_angle) -> float:
-    global count,previous
-    temp=previous
-    
-    if abs(temp-steering_angle)<0.06:
-        previous=steering_angle
-        steering_angle=0
-           
-    # print(steering_angle)
-    # if abs(steering_angle) < 0.03:
-    #     count=0.00
-    #     return 4,2.1
-    # elif abs(steering_angle) < 0.06:
-    #     count-=0.02
-    #     if count<0:
-    #         count=0
-    # if count>0.15:
-    #     count+=0.015
-    # else:
-    #     count+=0.018
-    
-    previous=(1-abs(steering_angle))*1+0.003 * ( 1 / ((3*(steering_angle**2))+0.001))+0.0001
-    
-    return previous , 0.85
+    global count
 
+    if abs(steering_angle) < 0.065:
+        
+        count = 0
+
+        return 4, 2, 0.03
+    else:
+        if count > 0.1:
+            count += 0.023
+        else:
+            count += 0.035
+
+        return 0.18+count, 0.9, 0.05
 
 
 def run_car(simulator: Simulator) -> None:
+    global c
+    c += 0.5
     """
     Function to control the car using keyboard
     Parameters
@@ -118,64 +98,91 @@ def run_car(simulator: Simulator) -> None:
         - get_state()
     """
     fps_counter.step()
-    dst_size= 37
-    bottom_offset= 0
-    source = np.float32([[222, 460],
-                         [377, 468],
-                         [376, 421],
+    dst_size = 24
+    source = np.float32([[220, 450],
+                         [380, 450],
+                         [377, 416],
                          [252, 416],
                          ])
-    
-    
+
     # Get the image and show it
     img = simulator.get_image()
     img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-    
+
     fps = fps_counter.get_fps()
-    image=img
-    destination = np.float32([[image.shape[1]/2 - 1.5*dst_size, image.shape[0] ],
-                [image.shape[1]/2 + 1.5*dst_size, image.shape[0] ],
-                [image.shape[1]/2 + 1.5*dst_size, image.shape[0] - 2*dst_size ], 
-                [image.shape[1]/2 - 1.5*dst_size, image.shape[0] - 2*dst_size ],
-                ])
+    image = img
+    destination = np.float32([[image.shape[1]/2 - dst_size, image.shape[0]],
+                              [image.shape[1]/2 + dst_size, image.shape[0]],
+                              [image.shape[1]/2 + dst_size,
+                                  image.shape[0] - 2*dst_size],
+                              [image.shape[1]/2 - dst_size,
+                                  image.shape[0] - 2*dst_size],
+                              ])
     warped = perspect_transform(image, source, destination)
     # cv2.imshow("image", warped)
-   
+
     cv2.waitKey(1)
-   
-    # Adham's edit 
+
+    # Adham's edit
     throttle = 0.17
     steering = 0
     steer_fact = 1.3
     rgb = cv2.cvtColor(warped, cv2.COLOR_BGR2RGB)
+    lower_bound = np.array([30, 30, 130])
+    upper_bound = np.array([70, 70, 180])
+# find the colors within the boundaries
+    red = cv2.inRange(warped, lower_bound, upper_bound)
+    kernel = np.ones((5, 5), np.uint8)
+    red1 = cv2.dilate(red.copy(), kernel, iterations=6)
+    red1 = cv2.cvtColor(red1, cv2.COLOR_BGR2RGB)
+    red1 = thresholding(red1, (1, 1, 1))
+
+    kernel = np.array((
+        [0, 0, 0],
+        [1, 1, 1],
+        [0, 0, 0]
+    ))
+    red2 = cv2.morphologyEx(red, cv2.MORPH_HITMISS, kernel, iterations=14)
+    kernel = np.ones((3, 15), np.uint8)
+    # if red2.any():
+    red2 = cv2.dilate(red2, kernel, iterations=7)
+    red2 = cv2.cvtColor(red2, cv2.COLOR_BGR2RGB)
+    red2 = thresholding(red2, (1, 1, 1))
+    red2=cv2.bitwise_not(red2)
+    # red2=cv2.erode(red,kernel,iterations = 1)
+
     bw = thresholding(rgb)
-    kernel = np.ones((5,5),np.uint8)
-    bw = cv2.erode(bw,kernel,iterations = 6)
+    kernel = np.ones((5, 5), np.uint8)
+    # bw = cv2.morphologyEx(bw, cv2.MORPH_OPEN, kernel)
+    bw = cv2.erode(bw, kernel, iterations=5)
+    # red=np.bitwise_not(red)
+    bw=np.bitwise_and(bw,red2)
+    cv2.imshow('image', red2)
+
     # kernel = np.ones((35,3),np.uint8)
     # bw = cv2.erode(bw,kernel,iterations = 6)
     # bw = cv2.morphologyEx(bw, cv2.MORPH_OPEN, kernel)
     # bw = cv2.erode(bw,kernel,iterations = 6)
     # cv2.imwrite('./warped.png',bw)
     # bw[0:200]=0
-    
-    
+
     ##
-    #mask
+    # mask
     ##
     # blank=np.ones_like(bw)
     # maskrectangle1=cv2.rectangle(blank.copy(),(320-210,0),(320+210,480),(255,255,255),-1)
     ################
     ##
-    #apply mask
+    # apply mask
     #
     # bw=np.bitwise_and(bw,maskrectangle1)
     ######
-    
-    
-    xpix, ypix = rover_coords(bw[:,:,0])
+
+    xpix, ypix = rover_coords(bw[:, :, 0])
     dists, angles = to_polar_coords(xpix, ypix)
+    # print(len(angles))
     steering = np.mean(angles)*steer_fact
-    
+
     # # Control the car using keyboard
     # steering = 0
     # if keyboard.is_pressed("a"):
@@ -188,9 +195,11 @@ def run_car(simulator: Simulator) -> None:
     #     throttle = 1
     # elif keyboard.is_pressed("s"):
     #     throttle = 0
-    cv2.imshow("image", warped)
-    throttle,fact= get_throttle(steering * simulator.max_steer_angle / 1.8)
-    simulator.set_car_steering(steering * simulator.max_steer_angle /fact)
+    print(steering)
+    throttle, fact, co = get_throttle(
+        steering * simulator.max_steer_angle / 1.8)
+    # +(np.sign(steering)*0.05)
+    simulator.set_car_steering((steering * simulator.max_steer_angle / fact))
     simulator.set_car_velocity(throttle * 25)
 
 
