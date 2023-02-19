@@ -8,7 +8,7 @@ import numpy as np
 from machathon_judge import Simulator, Judge
 
 from simple_pid import PID
-
+previous=0
 pid = PID(1, 0.1, 0.01)
 count=0
 def perspect_transform(img, src, dst):
@@ -75,7 +75,11 @@ def get_throttle(steering_angle) -> float:
 
 
 def run_car(simulator: Simulator) -> None:
-    global count
+    global count,previous
+    img = simulator.get_image()
+    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    
+    image=img
     """
     Function to control the car using keyboard
     Parameters
@@ -90,25 +94,34 @@ def run_car(simulator: Simulator) -> None:
     """
     cv2.waitKey(1)
     # fps_counter.step()
-    dst_size= 40
-    source = np.float32([[222, 460],
-                         [377, 468],
-                         [376, 421],
-                         [252, 416],
-                         ])
+    dst_size= 35
+    bottom_offset= -90
+    c=-0
+    source = np.float32([[222, 460-c],
+                            [377, 468-c],
+                            [376, 421-c],
+                            [252, 416-c],
+                            ])
+    destination = np.float32([[image.shape[1]/2 - dst_size, image.shape[0] - bottom_offset],
+                    [image.shape[1]/2 + dst_size, image.shape[0] - bottom_offset],
+                    [image.shape[1]/2 + dst_size, image.shape[0] - 2*dst_size - bottom_offset], 
+                    [image.shape[1]/2 - dst_size, image.shape[0] - 2*dst_size - bottom_offset],
+                    ])
+    # dst_size= 40
+    # source = np.float32([[222, 460],
+    #                      [377, 468],
+    #                      [376, 421],
+    #                      [252, 416],
+    #                      ])
     
     
-    # Get the image and show it
-    img = simulator.get_image()
-    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    # # Get the image and show it
     
-    fps = fps_counter.get_fps()
-    image=img
-    destination = np.float32([[image.shape[1]/2 - dst_size, image.shape[0] ],
-                [image.shape[1]/2 + dst_size, image.shape[0] ],
-                [image.shape[1]/2 + dst_size, image.shape[0] - 2*dst_size ], 
-                [image.shape[1]/2 - dst_size, image.shape[0] - 2*dst_size ],
-                ])
+    # destination = np.float32([[image.shape[1]/2 - dst_size, image.shape[0] ],
+    #             [image.shape[1]/2 + dst_size, image.shape[0] ],
+    #             [image.shape[1]/2 + dst_size, image.shape[0] - 2*dst_size ], 
+    #             [image.shape[1]/2 - dst_size, image.shape[0] - 2*dst_size ],
+    #             ])
     warped = perspect_transform(image, source, destination)
     # cv2.imshow("image", warped)
     # lower_bound = np.array([30, 30, 130])
@@ -132,11 +145,17 @@ def run_car(simulator: Simulator) -> None:
     
     rgb = cv2.cvtColor(warped, cv2.COLOR_BGR2RGB)
     bw = thresholding(rgb)
-    kernel = np.ones((30,15),np.uint8)
-    bw=cv2.morphologyEx(bw, cv2.MORPH_OPEN, kernel)
-    # kernel = np.ones((25,3),np.uint8)
-    # bw = cv2.erode(bw,kernel,iterations = 4)
     
+    # kernel = np.ones((7,7),np.float32)/(7*7)
+    # bw = cv2.filter2D(bw,-1,kernel)
+    # kernel = np.ones((35,45),np.uint8)
+    # bw=cv2.morphologyEx(bw, cv2.MORPH_OPEN, kernel)
+    kernel = np.ones((5,5),np.uint8)
+    bw = cv2.erode(bw,kernel,iterations = 7)
+    bw[0:150]=0
+    kernel = np.ones((7,7),np.float32)
+    bw = cv2.filter2D(bw,-1,kernel)
+    bw = cv2.filter2D(bw,-1,kernel)
     cv2.imshow('image', bw)
     # bw=np.bitwise_and(bw,red2)
     
@@ -144,23 +163,34 @@ def run_car(simulator: Simulator) -> None:
     
     xpix, ypix = rover_coords(bw[:,:,0])
     dists, angles = to_polar_coords(xpix, ypix)
-    steering = np.mean(angles)
-    steering1 = np.mean(angles* 180/np.pi)
-    # print(steering1)
-    throttle=15
-    if abs(steering1)<6:
-        count=0
-        steering=0
-    elif abs(steering1)>10:
-        throttle=1+count
-        count+=4
-        print('i am here')
-    else:
-        count-=0.3
-        if count<0:
-            count=0
-    # throttle,fact= get_throttle(steering )
+    throttle=14
+    steering=previous* np.pi/180
+    if angles.any():
+        steering = np.mean(angles)*1.2
+        previous=steering
     
+    # steering1 = np.mean(angles* 180/np.pi)
+    
+#     if abs(previous-steering)>7:
+#         steering/=2
+#     elif steering<4:
+#         steering/=4
+# # print(steering1)
+#     if abs(steering1)<9:
+#         if count>10:
+#             count=7
+#         count-=0.5
+#         throttle=16-count
+    
+#     elif abs(steering1)>16:
+#         throttle=1+count
+        
+#         count+=6
+            
+    
+    # throttle =2* 1/(4 * (steering**2)+0.0001)
+    # throttle,fact= get_throttle(steering )
+    throttle=10
     simulator.set_car_steering(steering)
     simulator.set_car_velocity(throttle)
 
