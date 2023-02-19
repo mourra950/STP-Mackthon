@@ -11,8 +11,10 @@ from simple_pid import PID
 
 pid = PID(1, 0.1, 0.01)
 count = 0
+count1 = 0
 c = 0
-previous=0
+previous = 0
+
 
 def perspect_transform(img, src, dst):
 
@@ -67,19 +69,20 @@ def thresholding(img, thresh=(200, 200, 200)):
 
 def get_throttle(steering_angle) -> float:
     global count
+    if abs(steering_angle) < 0.070:
+        count = 0.05
 
-    if abs(steering_angle) < 0.065:
-        
+        return 4, 2
+    elif abs(steering_angle) > 0.14:
+        # print(abs(round(steering_angle,4)))
         count = 0
-
-        return 4, 2, 0.03
+        return 0.15, 0.65
     else:
-        if count > 0.1:
-            count += 0.023
-        else:
-            count += 0.035
+        
+        count += 0.020
+        
 
-        return 0.18+count, 0.9, 0.05
+        return 0.16+count, 0.80
 
 
 def run_car(simulator: Simulator) -> None:
@@ -98,7 +101,7 @@ def run_car(simulator: Simulator) -> None:
         - get_state()
     """
     fps_counter.step()
-    dst_size = 24
+    dst_size = 25
     source = np.float32([[220, 450],
                          [380, 450],
                          [377, 416],
@@ -132,23 +135,25 @@ def run_car(simulator: Simulator) -> None:
     upper_bound = np.array([70, 70, 180])
 # find the colors within the boundaries
     red = cv2.inRange(warped, lower_bound, upper_bound)
-    kernel = np.ones((5, 5), np.uint8)
-    red1 = cv2.dilate(red.copy(), kernel, iterations=6)
-    red1 = cv2.cvtColor(red1, cv2.COLOR_BGR2RGB)
-    red1 = thresholding(red1, (1, 1, 1))
+    # kernel = np.ones((5, 5), np.uint8)
+    # red1 = cv2.dilate(red.copy(), kernel, iterations=6)
+    # red1 = cv2.cvtColor(red1, cv2.COLOR_BGR2RGB)
+    # red1 = thresholding(red1, (1, 1, 1))
 
     kernel = np.array((
-        [0, 0, 0],
-        [1, 1, 1],
-        [0, 0, 0]
+        [0, 0, 0, 0, 0, 0],
+        [1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1, 1],
+        [0, 0, 0, 0, 0, 0]
     ))
-    red2 = cv2.morphologyEx(red, cv2.MORPH_HITMISS, kernel, iterations=14)
-    kernel = np.ones((3, 15), np.uint8)
+    red2 = cv2.morphologyEx(red, cv2.MORPH_HITMISS, kernel, iterations=6)
+    cv2.imshow('image', red2)
+    kernel = np.ones((2, 20), np.uint8)
     # if red2.any():
-    red2 = cv2.dilate(red2, kernel, iterations=7)
+    red2 = cv2.dilate(red2, kernel, iterations=10)
     red2 = cv2.cvtColor(red2, cv2.COLOR_BGR2RGB)
     red2 = thresholding(red2, (1, 1, 1))
-    red2=cv2.bitwise_not(red2)
+    red2 = cv2.bitwise_not(red2)
     # red2=cv2.erode(red,kernel,iterations = 1)
 
     bw = thresholding(rgb)
@@ -157,7 +162,6 @@ def run_car(simulator: Simulator) -> None:
     bw = cv2.erode(bw, kernel, iterations=5)
     # red=np.bitwise_not(red)
     bw=np.bitwise_and(bw,red2)
-    cv2.imshow('image', red2)
 
     # kernel = np.ones((35,3),np.uint8)
     # bw = cv2.erode(bw,kernel,iterations = 6)
@@ -195,12 +199,12 @@ def run_car(simulator: Simulator) -> None:
     #     throttle = 1
     # elif keyboard.is_pressed("s"):
     #     throttle = 0
-    print(steering)
-    throttle, fact, co = get_throttle(
-        steering * simulator.max_steer_angle / 1.8)
+    # print(steering)
+    throttle, fact = get_throttle(
+        steering * simulator.max_steer_angle / 1.7)
     # +(np.sign(steering)*0.05)
     simulator.set_car_steering((steering * simulator.max_steer_angle / fact))
-    simulator.set_car_velocity(throttle * 25)
+    simulator.set_car_velocity(throttle * 30.5)
 
 
 if __name__ == "__main__":
