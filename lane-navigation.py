@@ -321,12 +321,12 @@ def image_process(frame):
 
 
     #---------------------------------- Display ---------------------------------------
-    cv2.imshow('Front_view', image)
-    cv2.imshow('added', A)
-    cv2.imshow('BW1', BW1)
-    cv2.imshow('ROIb', img_b)
-    # cv2.imshow('ROI', img_c)
-    cv2.imshow('bird_view', img_w)
+    # cv2.imshow('Front_view', image)
+    # cv2.imshow('added', A)
+    # cv2.imshow('BW1', BW1)
+    # cv2.imshow('ROIb', img_b)
+    # # cv2.imshow('ROI', img_c)
+    # cv2.imshow('bird_view', img_w)
     cv2.imshow('final', final)
     return degrees
 
@@ -388,19 +388,6 @@ def run_car(simulator: Simulator) -> None:
     
     cv2.imshow("image", img)
     cv2.waitKey(1)
-
-    # Control the car using keyboard
-    # steering = 0
-    # if keyboard.is_pressed("a"):
-    #     steering = 1
-    # elif keyboard.is_pressed("d"):
-    #     steering = -1
-
-    # throttle = 0
-    # if keyboard.is_pressed("w"):
-    #     throttle = 1
-    # elif keyboard.is_pressed("s"):
-    #     throttle = -1
     print(degrees)
     simulator.set_car_steering(degrees * np.pi/180 * -1)
     simulator.set_car_velocity(1 * 25)
