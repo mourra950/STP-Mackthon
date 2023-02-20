@@ -120,7 +120,7 @@ def run_car(simulator: Simulator) -> None:
     bw = thresholding(rgb)
 
     
-    kernel = np.ones((4, 6), np.uint8)
+    kernel = np.ones((4, 7), np.uint8)
     bw = cv2.erode(bw, kernel, iterations=8)
     
     cv2.imshow('image', bw)
@@ -128,7 +128,7 @@ def run_car(simulator: Simulator) -> None:
     xpix, ypix = rover_coords(bw[:, :, 0])
     angles = to_polar_coords(xpix, ypix)
     # bw[440:480]=0
-    throttle = 12
+    throttle = 15
     steering=0
     if angles.any():
         steering = np.mean(angles)
