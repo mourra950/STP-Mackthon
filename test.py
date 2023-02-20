@@ -142,8 +142,10 @@ def run_car(simulator: Simulator) -> None:
             count=np.clip(count,0,20)
         
         if throttle<11 :
-            count+=1
-            count=np.clip(count,0,13) 
+            count+=3
+            count=np.clip(count,0,10) 
+        elif throttle>12:
+            throttle+=4
             # count=np.clip(count,0,10)
         # print(steeringdegrees)
         pid.setpoint=steering
