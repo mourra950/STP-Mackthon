@@ -138,19 +138,19 @@ def run_car(simulator: Simulator) -> None:
         
         throttle=16-np.clip(abs(steeringdegrees)/2,0,20-count)
         if abs(steeringdegrees)<6:
-            count-=1
+            count-=2
             count=np.clip(count,0,20)
         
         if throttle<11 :
-            count+=2
-            count=np.clip(count,0,10) 
+            count+=1
+            count=np.clip(count,0,13) 
             # count=np.clip(count,0,10)
-        print(steeringdegrees)
+        # print(steeringdegrees)
         pid.setpoint=steering
         steering=pid(previous)
         previous=steering
     else:
-        steering=-previous
+        steering=-0.2
     simulator.set_car_steering(steering)
     simulator.set_car_velocity(throttle)
 
