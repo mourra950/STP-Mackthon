@@ -128,7 +128,7 @@ def run_car(simulator: Simulator) -> None:
     xpix, ypix = rover_coords(bw[:, :, 0])
     angles = to_polar_coords(xpix, ypix)
     # bw[440:480]=0
-    throttle = 10
+    throttle = 12
     steering=0
     if angles.any():
         steering = np.mean(angles)
