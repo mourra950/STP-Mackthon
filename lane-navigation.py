@@ -10,6 +10,13 @@ import keyboard
 from machathon_judge import Simulator, Judge
 
 import numpy as np
+
+
+# IMPORT NECESSARY LIBRARIES
+import os
+from scipy import optimize
+from matplotlib import pyplot as plt, cm, colors
+
 def canny(inpImage):
     # Convert image to grayscale, apply threshold, blur & extract edges
     gray = cv2.cvtColor(inpImage, cv2.COLOR_BGR2GRAY)
@@ -19,35 +26,41 @@ def canny(inpImage):
 
 def color(inpImage): 
     # Apply HLS color filtering to filter out white lane lines
-    hls = cv2.cvtColor(inpImage, cv2.COLOR_RGB2BGR)
+    hls = cv2.cvtColor(inpImage, cv2.COLOR_BGR2HLS)
+    #[50, 25, 100] hls red
+    
     lower_white = np.array([30, 30, 130])	
     upper_white = np.array([70, 70, 180])
     mask = cv2.inRange(inpImage, lower_white, upper_white)
-    # hls_result = cv2.bitwise_and(inpImage, inpImage, mask = mask)
-    # cv2.imshow("hls",hls_result)
+    hls_result = cv2.bitwise_and(inpImage, inpImage, mask = mask)
     
     # Convert image to grayscale, apply threshold, blur & extract edges
-    # gray = cv2.cvtColor(hls_result, cv2.COLOR_BGR2GRAY)
-    
-    ret, thresh = cv2.threshold(mask, 180, 255, cv2.THRESH_BINARY)
+    gray = cv2.cvtColor(hls_result, cv2.COLOR_BGR2GRAY)
+    ret, thresh = cv2.threshold(gray, 80, 90, cv2.THRESH_BINARY)
     blur = cv2.GaussianBlur(thresh,(3, 3), 11)
     canny = cv2.Canny(blur, 40, 60)
-    return canny
+    return canny, mask
 
-def sobel_binary(img, sobel_kernel=7, mag_thresh=(3, 255), s_thresh=(170, 255)):
+def sobel_binary(img, sobel_kernel=7, mag_thresh=(50, 255), s_thresh=(8, 8)):
     hls = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
     gray = hls[:, :, 1]
     s_channel = hls[:, :, 2]
+    # cv2.imshow("s_channel",s_channel)
     # Binary matrixes creation
     sobel_binary = np.zeros(shape=gray.shape, dtype=bool)
     s_binary = sobel_binary
     combined_binary = s_binary.astype(np.float32)
     # Sobel Transform
     sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=sobel_kernel)
-    sobely = 0 
+    sobely = 0
+    
+    cv2.imshow("soblex", sobelx)
+    # cv2.imshow("sobel2", s_channel)
     #cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=sobel_kernel)
     sobel_abs = np.abs(sobelx**2 + sobely**2)
     sobel_abs = np.uint8(255 * sobel_abs / np.max(sobel_abs))
+    
+    
     sobel_binary[(sobel_abs > mag_thresh[0]) & (sobel_abs <= mag_thresh[1])] = 1
     # Threshold color channel
     s_binary[(s_channel >= s_thresh[0]) & (s_channel <= s_thresh[1])] = 1
@@ -59,7 +72,7 @@ def sobel_binary(img, sobel_kernel=7, mag_thresh=(3, 255), s_thresh=(170, 255)):
 def region_of_interest(img):
     mask = np.zeros_like(img)
     imshape=img.shape
-    vertices = np.array([[(150,imshape[0]),(400, 500), (950, 500), (imshape[1]-27,imshape[0])]], dtype=np.int32)
+    vertices = np.array([[(-300,imshape[0]),(200, 450), (imshape[1]-200, 450), (imshape[1]+300,imshape[0])]], dtype=np.int32)
     cv2.fillPoly(mask, vertices, 255)
     masked_image = cv2.bitwise_and(img, mask)
     return masked_image
@@ -78,13 +91,18 @@ def text(img,angle):
 def sliding_windown(img_w):
 
     histogram = np.sum(img_w[int(img_w.shape[0] / 2):, :], axis=0)
+    
+    # print(histogram)
     # Create an output image to draw on and visualize the result
     out_img = np.dstack((img_w, img_w, img_w)) * 255
+    
+    # cv2.imshow("hiso",out_img)
     # Find the peak of the left and right halves of the histogram
     # These will be the starting point for the left and right lines
     midpoint = np.int32(histogram.shape[0] / 2)
     leftx_base = np.argmax(histogram[:midpoint])
     rightx_base = np.argmax(histogram[midpoint:]) + midpoint
+    
 
     # Choose the number of sliding windows
     nwindows = 9
@@ -253,39 +271,44 @@ def draw_lines(img, img_w, left_fit, right_fit, perspective):
 
 #------------------------------------------------------------------------------------------------------------#
 #----------------------------------------------Pipeline------------------------------------------------------#
-# swheel = cv2.imread('./steering_wheel_image1.jpg',0)
-# swheel = cv2.imread('./steering_wheel_image.jpg',0)
-# srows,scols,ch = swheel.shape
-# #final[0:225, 0:225] = steer
+
+#final[0:225, 0:225] = steer
 
 font = cv2.FONT_HERSHEY_SIMPLEX
 smoothed_angle = 0
 MOV_AVG_LENGTH = 5
 
-def image_process(frame):
-    
+def process_image(frame):
     global smoothed_angle
     
     image = cv2.resize(frame,(1280,720),interpolation=cv2.INTER_AREA)
+
     #-------------------------Color & Gradient Threshold------------------------ 
-    edges = color(image)
+    edges, edges2 = color(image)
+    # cv2.imshow("canny",edges)
     
     #edges1 = canny(image)
-    edges2=sobel_binary(image)
+    # edges2=sobel_binary(image)
+    cv2.imshow("sobel", edges2)
     
     A= cv2.addWeighted(edges2,0.7,edges,0.3,0)
     BW1=cv2.bitwise_and(A, edges2)
     img_b=region_of_interest(BW1)
+    cv2.imshow("A", img_b)
     #img_c=region_of_interest(BW)
 
     # ---------------------------- Perspective Transform --------------------------
 
-    line_dst_offset = 200
-    src = [180, 500], [1280, 500], [img_b.shape[1]-50, img_b.shape[0]],  [150, img_b.shape[0]]
-    dst = [src[3][0] + line_dst_offset, 0], [src[2][0] - line_dst_offset, 0], [src[2][0] - line_dst_offset, src[2][1]], \
-          [src[3][0] + line_dst_offset, src[3][1]]
+    line_dst_offset = 300
+    src = [-300,img_b.shape[0]], [img_b.shape[1]+300,img_b.shape[0]], [img_b.shape[1]-250, 450], [250, 450] 
+    dst = [0, src[0][1]], [img_b.shape[1], img_b.shape[0]], [img_b.shape[1], 0], \
+          [0, 0]
+          
+          #(250, 500), (imshape[1]-250, 500)
     
     img_w = warp(img_b, src, dst)
+    
+    cv2.imshow("W",img_w)
     
     #-----------------------------line_fitting-----------------------------------
     try:
@@ -297,7 +320,7 @@ def image_process(frame):
         left_fit, right_fit = sliding_windown(img_w)
         mov_avg_left = np.array([left_fit])
         mov_avg_right = np.array([right_fit])
-
+        
     left_fit = np.array([np.mean(mov_avg_left[::-1][:,0][0:MOV_AVG_LENGTH]),
                         np.mean(mov_avg_left[::-1][:,1][0:MOV_AVG_LENGTH]),
                         np.mean(mov_avg_left[::-1][:,2][0:MOV_AVG_LENGTH])])
@@ -309,28 +332,39 @@ def image_process(frame):
     if mov_avg_right.shape[0] > 1000:
         mov_avg_right = mov_avg_right[0:MOV_AVG_LENGTH]
         
-    final,degrees = draw_lines(image, img_w, left_fit, right_fit, perspective=[src,dst]) 
-    #----------------------------------Steering_GUI-------------------------------------
-    if degrees > 35:
-        degrees=35
-    elif degrees < -35:
-        degrees=-35
-
-    smoothed_angle += 0.2 * pow(abs((degrees - smoothed_angle)), 2.0 / 3.0) * (degrees - smoothed_angle) / abs(degrees - smoothed_angle)
-    degrees=smoothed_angle
-
-
-    #---------------------------------- Display ---------------------------------------
-    cv2.imshow('Front_view', image)
-    cv2.imshow('added', A)
-    cv2.imshow('BW1', BW1)
-    cv2.imshow('ROIb', img_b)
-    # cv2.imshow('ROI', img_c)
-    cv2.imshow('bird_view', img_w)
+    final,degrees = draw_lines(image, img_w, left_fit, right_fit, perspective=[src,dst])
+    
     cv2.imshow('final', final)
+    
     return degrees
+    
+    #----------------------------------Steering_GUI-------------------------------------
+    # if degrees > 35:
+    #     degrees=35
+    # elif degrees < -35:
+    #     degrees=-35   
+    # smoothed_angle += 0.2 * pow(abs((degrees - smoothed_angle)), 2.0 / 3.0) * (degrees - smoothed_angle) / abs(degrees - smoothed_angle)
+    # degrees=round(smoothed_angle)
+    # return degrees
 
 
+    #---------------------------------- Save video ---------------------------------------
+
+    # out.write(final)
+    #---------------------------------- Display ---------------------------------------
+    #cv2.imshow('Front_view', image)
+    #cv2.imshow('added', A)
+    #cv2.imshow('BW1', BW1)
+    #cv2.imshow('ROIb', img_b)
+    #cv2.imshow('ROI', img_c)
+    
+
+    #cv2.imshow('bird_view', img_w)
+    
+    
+    # return smoothed_angle
+    #cv2.imshow("steering wheel", steer)
+    #print("fps :",1./(time.time() -start)
 
 class FPSCounter:
     def __init__(self):
@@ -370,7 +404,7 @@ def run_car(simulator: Simulator) -> None:
     # Get the image and show it
     img = simulator.get_image()
     img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-    degrees = image_process(img)
+    degrees = process_image(img)
     fps = fps_counter.get_fps()
 
     # draw fps on image
@@ -386,7 +420,7 @@ def run_car(simulator: Simulator) -> None:
     )
     
     
-    cv2.imshow("image", img)
+    # cv2.imshow("image", img)
     cv2.waitKey(1)
 
     # Control the car using keyboard
@@ -401,9 +435,13 @@ def run_car(simulator: Simulator) -> None:
     #     throttle = 1
     # elif keyboard.is_pressed("s"):
     #     throttle = -1
+    # print(degrees)
+    degrees = (degrees) * np.pi/180
     print(degrees)
-    simulator.set_car_steering(degrees * np.pi/180 * -1)
-    simulator.set_car_velocity(1 * 25)
+    degrees /= simulator.max_steer_angle
+
+    simulator.set_car_steering(degrees * simulator.max_steer_angle / 1.7)
+    simulator.set_car_velocity(1)
 
 
 if __name__ == "__main__":
