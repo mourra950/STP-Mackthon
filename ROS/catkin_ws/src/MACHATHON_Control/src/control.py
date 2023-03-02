@@ -31,7 +31,7 @@ class ControlSocket:
         self.steering = 0
         self.throttle = 0
 
-    def send_action(self) -> Optional[float]:
+    def send_action(self):
         """
         Sends the current throttle and steering values to the car
         and returns the speed
@@ -68,7 +68,7 @@ class ControlSocket:
         except socket.timeout:
             return None
 
-    def set_steering(self, steering_msg: Float32) -> None:
+    def set_steering(self, steering_msg: Float32):
         """
         Set the steering angle
 
@@ -79,7 +79,7 @@ class ControlSocket:
         """
         self.steering = int(steering_msg.data)
 
-    def set_throttle(self, throttle_msg: Float32) -> None:
+    def set_throttle(self, throttle_msg: Float32) :
         """
         Set the throttle value
 

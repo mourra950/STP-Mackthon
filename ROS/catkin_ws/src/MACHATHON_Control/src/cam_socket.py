@@ -12,7 +12,7 @@ import numpy as np
 from PIL import Image
 from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
-from test import run_car
+# from test import run_car
 
 class CameraSocket:
     """
@@ -32,7 +32,7 @@ class CameraSocket:
         self.buffer_size = 2048
         self.server_buffer_size = 1400
 
-    def get_image(self) -> Optional[np.ndarray]:
+    def get_image(self) :
         """
         Get image from the socket server
 
@@ -52,7 +52,7 @@ class CameraSocket:
         client_socket.close()
         return image
 
-    def get_image_unsafe(self, client_socket: socket.socket) -> Optional[np.ndarray]:
+    def get_image_unsafe(self, client_socket: socket.socket) :
         """
         Get image from the socket server
         Note: this can throw an exception
@@ -101,12 +101,12 @@ def main():
     image_pub = rospy.Publisher(
         rospy.get_param("/camera/image_topic"), Image, queue_size=1
     )
-    throttle_pub = rospy.Publisher("/throttle", Float32, queue_size=1)
-    steering_pub = rospy.Publisher("/steering", Float32, queue_size=1)
+    # throttle_pub = rospy.Publisher("/throttle", Float32, queue_size=1)
+    # steering_pub = rospy.Publisher("/steering", Float32, queue_size=1)
     rate = rospy.Rate(20)
     while not rospy.is_shutdown():
         image = camera_socket.get_image()
-        speed= car_get_speed()
+        # speed= car_get_speed()
         # print(image)
         # print('ahmed')
         
@@ -118,9 +118,9 @@ def main():
         # img = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
         # img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         
-        img=cv2.rotate(image,rotateCode = cv2.ROTATE_90_COUNTERCLOCKWISE)
+        # img=cv2.rotate(image,rotateCode = cv2.ROTATE_90_COUNTERCLOCKWISE)
         # cv2.imshow('colored',img)
-        img[0:50]=0
+        # img[0:50]=0
         # lower_bound = np.array([240, 240, 240])	 
         # upper_bound = np.array([255, 255, 255])
         # find the colors within the boundaries 
@@ -129,9 +129,9 @@ def main():
         # cv2.waitKey(1)
         # cv2.imshow('thresh',img)
         # cv2.imwrite('./test.png',img)
-        steering,throttle=run_car(img)    
-        throttle_pub.publish(throttle)
-        steering_pub.publish(steering)
+        # steering,throttle=run_car(img)    
+        # throttle_pub.publish(throttle)
+        # steering_pub.publish(steering)
         image_msg = CvBridge().cv2_to_imgmsg(image, "bgr8")
         image_pub.publish(image_msg)
         rate.sleep()

@@ -1,4 +1,8 @@
-from PIL import Image
+#!/usr/bin/env python3
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge
+
+# from PIL import Image
 from std_msgs.msg import Float32
 import cv2
 import rospy
@@ -6,8 +10,13 @@ import numpy as np
 
 
 class Car:
-    def __init__(self) -> None:
+    def __init__(self):
         rospy.init_node("car_controller", anonymous=True)
+        
+        
+        self.previous = 0
+        self.count = -20
+
         # self.throttle_topic = rospy.get_param("/throttle", Float32, queue_size=10)
         self.image = None
         self.speed = 0
@@ -15,15 +24,58 @@ class Car:
         self.throttle_pub = rospy.Publisher("/throttle", Float32, queue_size=10)
         self.steering_pub = rospy.Publisher("/steering", Float32, queue_size=10)
         self.speed_sub = rospy.Subscriber("/speed", Float32, self.update_car_speed)
-        self.image_sub = rospy.Subscriber("/camera_topic", Image, self.update_image)
+        self.image_sub = rospy.Subscriber("/camera_image", Image, self.update_image)
     
-    def get_steering_throttle():
+        
+
+    def perspect_transform(self,img, src, dst):
+
+        M = cv2.getPerspectiveTransform(src, dst)
+        # keep same size as input image
+        warped = cv2.warpPerspective(img, M, (img.shape[1], img.shape[0]))
+
+        return warped
+
+
+
+    def car_coords(self,binary_img):
+        ypos, xpos = binary_img.nonzero()
+        x_pixel = -(ypos - binary_img.shape[0]).astype(np.float64)
+        y_pixel = -(xpos - binary_img.shape[1]/2).astype(np.float64)
+        return x_pixel, y_pixel
+
+
+    def to_polar_coords(self,x_pixel, y_pixel):
+        # dist = np.sqrt(x_pixel**2 + y_pixel**2)
+        angles = np.arctan2(y_pixel, x_pixel)
+        return  angles
+
+
+    def thresholding(self,img, thresh=(100, 100, 100)):
+        thresholded = np.zeros_like(img[:, :])
+        indecies = (img[:, :, 0] > thresh[0]) & (
+            img[:, :, 1] > thresh[1]) & (img[:, :, 2] > thresh[2])
+        thresholded[indecies] = 255
+        return thresholded
+
+        
+    def get_steering_throttle(self):
         global count, previous, dst_size,pid
-        cv2.imshow('img',self.image)
-        
+        dst_size = 50
+        count=0
         # img=cv2.resize(img,(640,480))
-        img = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
+        try:
+            if self.image==None:
+                return 0,0
+        except:
+            print('ahmed')
         
+        # print(type(self.image))
+        img = CvBridge().imgmsg_to_cv2(self.image, "bgr8")
+        
+        img=cv2.rotate(img,rotateCode = cv2.ROTATE_90_COUNTERCLOCKWISE)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        cv2.imshow('j',img)
         
 
         # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -31,7 +83,7 @@ class Car:
         # img = cv2.filter2D(img,-1,kernel)
         # img=cv2.equalizeHist(img)
         
-        bottom_offset = 20
+        bottom_offset = 0
         
         image = img
         
@@ -55,31 +107,23 @@ class Car:
                                     2*dst_size - bottom_offset],
                                 ])
 
-        warped = perspect_transform(image, source, destination)
-        # warped[0:100]=0
-        # rgb = cv2.cvtColor(warped, cv2.COLOR_BGR2RGB)
+        warped = self.perspect_transform(image, source, destination)
+        cv2.imshow('thresh',warped)
         
-        ret,thresh = cv2.threshold(warped,170,255,cv2.THRESH_BINARY)
+        ret,thresh = cv2.threshold(warped,180,255,cv2.THRESH_BINARY)
         cv2.imshow('thresh',thresh)
-
-        # print('ahmed')
-        # cv2.imshow('bw',bw)
-        kernel = np.ones((2, 3), np.uint8)
-        bw = cv2.erode(bw, kernel, iterations=4)
         
-
-        xpix, ypix = rover_coords(thresh)
-        angles = to_polar_coords(xpix, ypix)
+        xpix, ypix = self.car_coords(thresh)
+        angles = self.to_polar_coords(xpix, ypix)
         # bw[440:480]=0
-        throttle = 12
+        throttle = 0
         steering=0
         if angles.any():
+
             steering = np.mean(angles)
-            # print(steering)
             steeringdegrees=np.mean(angles*180/np.pi)
-            
-            # print(steering)
-            throttle=16-np.clip(abs(steeringdegrees)/2,0,20-count)
+            # throttle=16-np.clip(abs(steeringdegrees)/2,0,20-count)
+
             if abs(steeringdegrees)<6:
                 count-=2
                 count=np.clip(count,0,20)
@@ -89,30 +133,25 @@ class Car:
                 count=np.clip(count,0,10) 
             if throttle>6:
                 throttle+=6
-                # count=np.clip(count,0,10)
-            # print(steeringdegrees)
-            # pid.setpoint=steering
-            # steering=pid(previous)
-            previous=steering
         else:
             steering=-0.2
-        steering=np.clip(3*steering*180/np.pi,-20,20)
-        if abs(steering)>13:
-            steering=np.clip(2*steering,-20,20)
-        return steering,100
+        steering=np.clip(3*steering*180/np.pi,-25,35)
+        if abs(steering)>16:
+            steering=np.clip(3*steering,-30,30)
+        return steering,0
         
-    def run():
+    def run(self):
         while not rospy.is_shutdown():
-            steering, throttle = get_steering_throtlle()
+            steering, throttle = self.get_steering_throttle()
             self.throttle_pub.publish(throttle)
             self.steering_pub.publish(steering)
             self.rate.sleep()
         rospy.spin()
 
-    def update_car_speed(speed):
+    def update_car_speed(self,speed):
         self.speed = speed
     
-    def update_image(img):
+    def update_image(self,img):
         self.image = img
 
 if __name__ == "__main__":

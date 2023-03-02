@@ -6,7 +6,7 @@ import keyboard
 import numpy as np
 from simple_pid import PID
 
-dst_size = 50
+dst_size = 35
 previous = 0
 pid = PID(0.50, 0.07, 0.01, setpoint=0)
 count = -20
@@ -35,7 +35,7 @@ def to_polar_coords(x_pixel, y_pixel):
     return  angles
 
 
-def thresholding(img, thresh=(120, 120, 120)):
+def thresholding(img, thresh=(100, 100, 100)):
     thresholded = np.zeros_like(img[:, :])
     indecies = (img[:, :, 0] > thresh[0]) & (
         img[:, :, 1] > thresh[1]) & (img[:, :, 2] > thresh[2])
@@ -59,7 +59,7 @@ def run_car(img):
     # img = cv2.filter2D(img,-1,kernel)
     # img=cv2.equalizeHist(img)
     
-    bottom_offset = 20
+    bottom_offset = 30
     
     image = img
     
@@ -67,12 +67,12 @@ def run_car(img):
     # fps_counter.step()
 
 
-    throttle = 0
+    throttle = 50
 
-    source = np.float32([[7, 303],
-                         [235, 303],
-                         [191, 226],
-                         [54, 226],
+    source = np.float32([[15, 261],
+                         [225, 264],
+                         [182, 206],
+                         [55, 203],
                          ])
     destination = np.float32([[image.shape[1]/2 - dst_size, image.shape[0] - bottom_offset],
                               [image.shape[1]/2 + dst_size,
@@ -85,16 +85,19 @@ def run_car(img):
 
     warped = perspect_transform(image, source, destination)
     # warped[0:100]=0
-    # rgb = cv2.cvtColor(warped, cv2.COLOR_BGR2RGB)
     
+    # rgb = cv2.cvtColor(warped, cv2.COLOR_BGR2RGB)
+    # warped=cv2.resize(warped,(640,480),interpolation=cv2.INTER_NEAREST)
     ret,thresh = cv2.threshold(warped,170,255,cv2.THRESH_BINARY)
-    cv2.imshow('thresh',thresh)
+    # cv2.imshow('thresh',thresh)
 
     # print('ahmed')
-    # cv2.imshow('bw',bw)
-    kernel = np.ones((2, 3), np.uint8)
-    bw = cv2.erode(bw, kernel, iterations=4)
-    
+    # # cv2.imshow('bw',bw)
+    # kernel = np.ones((1, 8), np.uint8)
+    # thresh = cv2.erode(thresh, kernel, iterations=2)
+    # cv2.imshow('erode',erode)
+    # thresh[0:50]=0
+    cv2.imshow('warped',thresh)
 
     xpix, ypix = rover_coords(thresh)
     angles = to_polar_coords(xpix, ypix)
@@ -125,6 +128,8 @@ def run_car(img):
     else:
         steering=-0.2
     steering=np.clip(3*steering*180/np.pi,-20,20)
+    speed=150
     if abs(steering)>13:
-        steering=np.clip(2*steering,-20,20)
-    return steering,100
+        steering=np.clip(2*steering,-22,22)
+        speed=120
+    return steering,0

@@ -1,0 +1,4 @@
+export DISPLAY=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2}'):0
+source devel/setup.bash
+rosbag record -O bag1.bag -a5
+rosbag play 2023-02-26-16-25-02.bag
