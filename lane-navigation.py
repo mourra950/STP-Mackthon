@@ -2,6 +2,7 @@
 Example code using the judge module
 """
 import time
+import traceback
 
 # pylint: disable=import-error
 import cv2
@@ -10,12 +11,17 @@ import keyboard
 from machathon_judge import Simulator, Judge
 
 import numpy as np
+left_fit = np.array([])
+right_fit = np.array([])
 
+mov_avg_left = np.array([])
+mov_avg_right = np.array([])
 
 # IMPORT NECESSARY LIBRARIES
 import os
 from scipy import optimize
 from matplotlib import pyplot as plt, cm, colors
+# left_fit, right_fit = None
 
 def canny(inpImage):
     # Convert image to grayscale, apply threshold, blur & extract edges
@@ -72,7 +78,7 @@ def sobel_binary(img, sobel_kernel=7, mag_thresh=(50, 255), s_thresh=(8, 8)):
 def region_of_interest(img):
     mask = np.zeros_like(img)
     imshape=img.shape
-    vertices = np.array([[(-300,imshape[0]),(200, 450), (imshape[1]-200, 450), (imshape[1]+300,imshape[0])]], dtype=np.int32)
+    vertices = np.array([[(-300,imshape[0]),(300, 500), (imshape[1]-300, 500), (imshape[1]+300,imshape[0])]], dtype=np.int32)
     cv2.fillPoly(mask, vertices, 255)
     masked_image = cv2.bitwise_and(img, mask)
     return masked_image
@@ -223,8 +229,9 @@ def draw_lines(img, img_w, left_fit, right_fit, perspective):
 
     img_height = img.shape[0]
     y_eval = img_height
-    ym_per_pix = 30 / 720.  # meters per pixel in y dimension
-    xm_per_pix = 3.7 / 700  # meters per pixel in x dimension
+    ym_per_pix = 10 / 720
+    # meters per pixel in y dimension
+    xm_per_pix = 3 / 1280 # meters per pixel in x dimension
 
     ploty = np.linspace(0, img_height - 1, img_height)
     # Fit new polynomials to x,y in world space
@@ -242,10 +249,10 @@ def draw_lines(img, img_w, left_fit, right_fit, perspective):
     
     if left_fitx[0] - left_fitx[-1] > 60:
         curve_direction = 'Left Curve'
-        radius=5729.57795/radius1
+        radius=-5729.57795/radius1
     elif left_fitx[-1] - left_fitx[0] > 60:
         curve_direction = 'Right Curve'
-        radius=-5729.57795/radius1
+        radius=5729.57795/radius1
     else:
         curve_direction = 'Straight'
         radius=5729.57795/radius1
@@ -262,7 +269,7 @@ def draw_lines(img, img_w, left_fit, right_fit, perspective):
     #if radius < 5000.0:
     text = "Angle = %s [degrees]\noffcenter = %s [m]" % (str(radius), str(off_center))
     #text = "radius = -- [m]\noffcenter = %s [m]" % (str(off_center))
-
+    print(text)
    # for i, line in enumerate(text.split('\n')):
    #     i = 550 + 20 * i
    #     cv2.putText(result, line, (0,i), cv2.FONT_HERSHEY_DUPLEX, 0.5,(255,255,255),1,cv2.LINE_AA)
@@ -280,6 +287,10 @@ MOV_AVG_LENGTH = 5
 
 def process_image(frame):
     global smoothed_angle
+    global left_fit
+    global right_fit
+    global mov_avg_left
+    global mov_avg_right
     
     image = cv2.resize(frame,(1280,720),interpolation=cv2.INTER_AREA)
 
@@ -300,7 +311,7 @@ def process_image(frame):
     # ---------------------------- Perspective Transform --------------------------
 
     line_dst_offset = 300
-    src = [-300,img_b.shape[0]], [img_b.shape[1]+300,img_b.shape[0]], [img_b.shape[1]-250, 450], [250, 450] 
+    src = [-300,img_b.shape[0]], [img_b.shape[1]+300,img_b.shape[0]], [img_b.shape[1]-350, 500], [350, 500] 
     dst = [0, src[0][1]], [img_b.shape[1], img_b.shape[0]], [img_b.shape[1], 0], \
           [0, 0]
           
@@ -310,13 +321,21 @@ def process_image(frame):
     
     cv2.imshow("W",img_w)
     
+    try:
+        print(left_fit)
+    except Exception:
+        print("None")
+    
     #-----------------------------line_fitting-----------------------------------
     try:
+        if(left_fit.size == 0 or right_fit.size == None):
+            raise Exception
         left_fit, right_fit = fit_from_lines(left_fit, right_fit, img_w)
         mov_avg_left = np.append(mov_avg_left,np.array([left_fit]), axis=0)
         mov_avg_right = np.append(mov_avg_right,np.array([right_fit]), axis=0)
     except Exception:
         print("sliding window")
+        print(traceback.format_exc())
         left_fit, right_fit = sliding_windown(img_w)
         mov_avg_left = np.array([left_fit])
         mov_avg_right = np.array([right_fit])
@@ -386,6 +405,7 @@ class FPSCounter:
 
 
 def run_car(simulator: Simulator) -> None:
+    global left_fit, right_fit
     """
     Function to control the car using keyboard
 
@@ -436,13 +456,13 @@ def run_car(simulator: Simulator) -> None:
     # elif keyboard.is_pressed("s"):
     #     throttle = -1
     # print(degrees)
-    degrees = (degrees) * np.pi/180
     print(degrees)
-    degrees /= simulator.max_steer_angle
+    degrees = (degrees) * np.pi/180
 
-    simulator.set_car_steering(degrees * simulator.max_steer_angle / 1.7)
+    # degrees /= simulator.max_steer_angle
+# degrees * simulator.max_steer_angle / 1.7
+    simulator.set_car_steering(degrees)
     simulator.set_car_velocity(1)
-
 
 if __name__ == "__main__":
     # Initialize any variables needed

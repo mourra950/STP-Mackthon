@@ -2,4 +2,5 @@
 <launch>
     <include file="$(find machathon_control)/launch/camera.launch" />
     <include file="$(find machathon_control)/launch/control.launch" />
+    <include file="$(find machathon_control)/launch/main.launch" />
 </launch>
