@@ -8,7 +8,7 @@ import numpy as np
 from machathon_judge import Simulator, Judge
 
 from simple_pid import PID
-dst_size = 30
+dst_size = 40
 previous = 0
 pid = PID(0.50, 0.07, 0.01, setpoint=0)
 count = 0
@@ -65,38 +65,29 @@ def thresholding(img, thresh=(200, 200, 200)):
 # to get throttle
 
 
-def get_throttle(steering_angle) -> float:
-    global count
-
-    if abs(steering_angle) < 0.07:
-        count = 0
-
-        return 4, 1.7
-    elif abs(steering_angle) > 1.5:
-
-        return 0.065, 0.6
-    else:
-        if count > 0.15:
-            count += 0.013
-        else:
-            count += 0.02
-
-        return 0.19+count, 0.7
-
-
-def run_car(simulator: Simulator) -> None:
+def run_car(img) -> None:
     global count, previous, dst_size,pid
     img = simulator.get_image()
     img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
     
     bottom_offset = -100
-    
     image = img
-    
+    height,width,channel = image.shape
     cv2.waitKey(1)
     # fps_counter.step()
-
+    lower_bound = np.array([30, 30, 130])	 
+    upper_bound = np.array([70, 70, 180])
+    # kernel = np.ones((5,5),np.uint8)
+    # img_test=cv2.erode(img_test,kernel,iterations=1)
+   
     
+    # imgray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    # ret, thresh = cv2.threshold(image, 200, 200, 200)
+    
+
+
+
+
 
     throttle = 0
 
@@ -115,6 +106,42 @@ def run_car(simulator: Simulator) -> None:
                               ])
 
     warped = perspect_transform(image, source, destination)
+    img_test = cv2.inRange(warped, lower_bound,upper_bound)
+    
+    # cv2.imshow('aaa',warped)
+    #start
+    
+
+    contours, hierarchy = cv2.findContours(img_test, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE) 
+
+    contour_area = []
+
+    for c in contours:
+        contour_area.append((cv2.contourArea(c), c))
+
+    contour_area = sorted(contour_area, key=lambda x:x[0], reverse=True)
+    image2 = np.zeros((height, width, 3), dtype = "uint8")
+
+    # draw them
+
+    coords1 = np.vstack([contour_area[0][1], contour_area[1][1]])
+
+    cv2.fillPoly(image2, [coords1], (255, 255, 255))
+
+    gray = cv2.cvtColor(image2, cv2.COLOR_BGR2GRAY) 
+
+    thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+
+    coords = np.column_stack(np.where(thresh > 0))
+
+    c2=np.stack((coords[:,1], coords[:,0]), axis=-1)
+    bb=np.zeros_like(image)
+
+    cv2.fillPoly(bb, [c2], (0, 255, 0))
+
+    cv2.imshow('img',bb)
+
+    #end
 
     rgb = cv2.cvtColor(warped, cv2.COLOR_BGR2RGB)
     bw = thresholding(rgb)
@@ -123,7 +150,7 @@ def run_car(simulator: Simulator) -> None:
     kernel = np.ones((4, 7), np.uint8)
     bw = cv2.erode(bw, kernel, iterations=8)
     
-    cv2.imshow('image', bw)
+    # cv2.imshow('image', bw)
 
     xpix, ypix = rover_coords(bw[:, :, 0])
     angles = to_polar_coords(xpix, ypix)
